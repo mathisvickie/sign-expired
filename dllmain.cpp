@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include <Windows.h>
 
 //we are hijacking dll XmlLite so define where original one is located
@@ -49,8 +48,13 @@ BOOL WriteToReadOnly(PVOID Address, PVOID Buffer, SIZE_T Size)
 BYTE fixCertVerifyTimeValidity[] = {0x48, 0x31, 0xC0, 0xC3}; //xor rax,rax | ret
 BYTE fixGetSystemTimeAsFileTime[] = {0x48, 0x83, 0x21, 0x00, 0xC3}; //and qword ptr[rcx],0x00 | ret
 
-BOOL InitHooks()
+BOOL APIENTRY entry(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
+	if (dwReason != DLL_PROCESS_ATTACH)
+		return TRUE;
+
+	DisableThreadLibraryCalls(hModule);
+
 	if ((gCreateXmlReader = GetDllExport(ORIG_DLL, "CreateXmlReader")) &&
 		(gCreateXmlReaderInputWithEncodingCodePage = GetDllExport(ORIG_DLL, "CreateXmlReaderInputWithEncodingCodePage")) &&
 		(gCreateXmlReaderInputWithEncodingName = GetDllExport(ORIG_DLL, "CreateXmlReaderInputWithEncodingName")) &&
@@ -62,11 +66,4 @@ BOOL InitHooks()
 			WriteToReadOnly(GetDllExport("KernelBase.dll", "GetSystemTimeAsFileTime"), fixGetSystemTimeAsFileTime, sizeof fixGetSystemTimeAsFileTime);
 	}
 	return FALSE;
-}
-
-BOOL APIENTRY entry(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
-{
-	if (dwReason == DLL_PROCESS_ATTACH)
-		return InitHooks();
-	return TRUE;
 }
